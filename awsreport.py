@@ -33,7 +33,21 @@ def main():
         
             myVPC.num_of_vpcs += 1
     
-    
+    class EC2:
+        """ 
+        EC2 class - Name, Instance id, type, AZ, State, IP, launch time
+        """
+        num_of_ec2s = 0
+
+        #def __init__(self,ec2name,instanceId,type,az,state,publicIP,project)
+        def __init__(self, ec2name, instanceId, ec2Type):
+            self.ec2name = ec2name
+            self.instanceId = instanceId
+            self.ec2Type = ec2Type
+
+            EC2.num_of_ec2s += 1
+
+            
     vpc_client = boto3.resource('ec2')
     vpc_ids = vpc_client.vpcs.all()
    
@@ -52,7 +66,14 @@ def main():
                 vpcname = t['Value']
         vpctemp = myVPC(vpcname, vpcstate, vpcid, cidr) 
         vpcList.append(vpctemp)
-        
+    
+    ec2List = []
+    ec2 = boto3.resource('ec2')
+    inst  = ec2.instances.all()
+    for i in inst:
+        print i.id
+        print i.state 
+
     def loadVPCs(): 
         # create VPC worksheet
         # worksheet fields: VPC Name | VPC State | VPC ID | VPC CIDR 
@@ -74,10 +95,10 @@ def main():
             vpcworksheet.write('B'+str(row), i.vpcstate)
             vpcworksheet.write('C'+str(row), i.vpcid)
             vpcworksheet.write('D'+str(row), i.cidr)
-            print i.vpcname
-            print i.vpcstate
-            print i.vpcid
-            print i.cidr
+            #print i.vpcname
+            #print i.vpcstate
+            #print i.vpcid
+            #print i.cidr
             row += 1
 
     loadVPCs()
