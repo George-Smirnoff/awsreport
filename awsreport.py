@@ -39,11 +39,15 @@ def main():
         """
         num_of_ec2s = 0
 
-        #def __init__(self,ec2name,instanceId,type,az,state,publicIP,project)
-        def __init__(self, ec2name, instanceId, ec2Type):
+        def __init__(self, ec2name, instanceId, instanceType, az, state, privateIP, OS, projectCode):
             self.ec2name = ec2name
             self.instanceId = instanceId
-            self.ec2Type = ec2Type
+            self.instanceType = instanceType
+            self.az = az
+            self.state = state
+            self.privateIP = privateIP
+            self.OS = OS
+            self.projectCode = projectCode
 
             EC2.num_of_ec2s += 1
 
@@ -66,13 +70,73 @@ def main():
                 vpcname = t['Value']
         vpctemp = myVPC(vpcname, vpcstate, vpcid, cidr) 
         vpcList.append(vpctemp)
-    
+   
+
+    # Load EC2 list
+    # 
+#    ec2List = []
+#    ec2 = boto3.resource('ec2')
+#    inst  = ec2.instances.all()
+#    for i in inst:
+#        for t in i.tags:
+#            if t['Key'] == 'Name':
+#                print "Name is %s" % (t['Value'])
+#            if t['Key'] == 'project':
+#                print "Project is %s" % t['Value']
+#        print i.id
+#        print i.instance_type
+#        print i.state['Name'] 
+#        print i.private_ip_address
+#        print i.launch_time
+#        if i.platform == 'Windows':
+#            print "OS is Windows"
+#        else:
+#            print "OS is Linux"
+
+    # Load EC2 
     ec2List = []
-    ec2 = boto3.resource('ec2')
-    inst  = ec2.instances.all()
-    for i in inst:
-        print i.id
-        print i.state 
+    client = boto3.client('ec2')
+    response = client.describe_instances()
+
+    for r in response['Reservations']:
+        for i in r['Instances']:
+            state = i['State']['Name']
+            #ec2state = i['State']['Name']
+            privateIP = i['PrivateIpAddress']
+            instanceId = i['InstanceId']
+            az = i['Placement']['AvailabilityZone']
+            instanceType = i['InstanceType']
+            for t in i['Tags']:
+                if t['Key'] == 'Name':
+                    ec2name = t['Value']
+
+                if t['Key'] == 'project':
+                    projectCode = t['Value']
+                else:
+                    projectCode = 'None'
+           
+            inst = boto3.resource('ec2')
+            s = inst.Instance(id=instanceId)
+            if s.platform  == 'Windows':
+                OS = 'Windows'
+            else:
+                OS = 'Linux'
+
+            #instanceId = i['InstanceId']
+            #ec2state = i['State']['Name']
+            #privateIp = i['PrivateIpAddress']
+            #az = i['Placement']['AvailabilityZone']
+            #instanceType = i['InstanceType']
+            ec2temp = EC2(ec2name,instanceId,instanceType,az,state,privateIP,OS,projectCode)      
+            ec2List.append(ec2temp)
+
+    for i in ec2List:
+        print i.ec2name
+        print i.instanceId
+        print i.state
+        print i.privateIP
+        print i.OS
+        print i.projectCode
 
     def loadVPCs(): 
         # create VPC worksheet
@@ -95,10 +159,6 @@ def main():
             vpcworksheet.write('B'+str(row), i.vpcstate)
             vpcworksheet.write('C'+str(row), i.vpcid)
             vpcworksheet.write('D'+str(row), i.cidr)
-            #print i.vpcname
-            #print i.vpcstate
-            #print i.vpcid
-            #print i.cidr
             row += 1
 
     loadVPCs()
