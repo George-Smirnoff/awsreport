@@ -11,12 +11,19 @@ import boto3
 import xlsxwriter
 import collections
 
+# set myTag to what ever tag you want reported
+# i.e myTag = 'department', default is project
+# also set the title of the tag
+myTag = 'project'
+myTagTitle = 'Project Tag'
+
 def main():
     # Create the workbook
-    workbook = xlsxwriter.Workbook('awsreport.xlsx')
+    workbook = xlsxwriter.Workbook('awsreport.xlsx', {'remove_timezone': True})
 
     # define a cell format
     bold = workbook.add_format({'bold': True})
+    redBG = workbook.add_format({'bold': True, 'font_color': 'red'})
 
     class myVPC:
         """
@@ -24,7 +31,8 @@ def main():
         """        
 
         num_of_vpcs = 0
-        
+        my_vpc_dict = {}
+
         def __init__(self, vpcname, vpcstate, vpcid, cidr):
             self.vpcname = vpcname
             self.vpcstate = vpcstate
@@ -32,6 +40,12 @@ def main():
             self.cidr = cidr
         
             myVPC.num_of_vpcs += 1
+
+            #if self.vpcid in myVPC.my_vpc_dict.keys():
+            if myVPC.my_vpc_dict.has_key(self.vpcid):
+                pass
+            else:
+                myVPC.my_vpc_dict[self.vpcid] = self.vpcname
     
     class EC2:
         """ 
@@ -39,61 +53,35 @@ def main():
         """
         num_of_ec2s = 0
 
-        def __init__(self, ec2name, instanceId, instanceType, az, state, privateIP, OS, projectCode, vpcid):
+        def __init__(self, ec2name, instanceId, instanceType, az, state, privateIP, launchTime, OS, projectCode, vpcid):
             self.ec2name = ec2name
             self.instanceId = instanceId
             self.instanceType = instanceType
             self.az = az
             self.state = state
             self.privateIP = privateIP
+            self.launchTime = launchTime
             self.OS = OS
             self.projectCode = projectCode
             self.vpcid = vpcid
 
             EC2.num_of_ec2s += 1
 
-            
     vpc_client = boto3.resource('ec2')
     vpc_ids = vpc_client.vpcs.all()
    
     vpcList = [] 
     for i in vpc_ids:
         v = vpc_client.Vpc(i.id)
-        #print v.vpc_id
-        #print v.state
-        #print v.cidr_block
         vpcid = v.vpc_id
         vpcstate = v.state
         cidr = v.cidr_block
         for t in v.tags:
             if t['Key'] == 'Name':
-                #print t['Value']     
                 vpcname = t['Value']
         vpctemp = myVPC(vpcname, vpcstate, vpcid, cidr) 
         vpcList.append(vpctemp)
    
-
-    # Load EC2 list
-    # 
-#    ec2List = []
-#    ec2 = boto3.resource('ec2')
-#    inst  = ec2.instances.all()
-#    for i in inst:
-#        for t in i.tags:
-#            if t['Key'] == 'Name':
-#                print "Name is %s" % (t['Value'])
-#            if t['Key'] == 'project':
-#                print "Project is %s" % t['Value']
-#        print i.id
-#        print i.instance_type
-#        print i.state['Name'] 
-#        print i.private_ip_address
-#        print i.launch_time
-#        if i.platform == 'Windows':
-#            print "OS is Windows"
-#        else:
-#            print "OS is Linux"
-
     # Load EC2 
     ec2List = []
     client = boto3.client('ec2')
@@ -104,6 +92,7 @@ def main():
             state = i['State']['Name']
             vpcid = i['VpcId']
             privateIP = i['PrivateIpAddress']
+            launchTime = i['LaunchTime']
             instanceId = i['InstanceId']
             az = i['Placement']['AvailabilityZone']
             instanceType = i['InstanceType']
@@ -111,7 +100,7 @@ def main():
                 if t['Key'] == 'Name':
                     ec2name = t['Value']
 
-                if t['Key'] == 'project':
+                if t['Key'] == myTag:
                     projectCode = t['Value']
                 else:
                     projectCode = 'None'
@@ -123,22 +112,8 @@ def main():
             else:
                 OS = 'Linux'
 
-            #instanceId = i['InstanceId']
-            #ec2state = i['State']['Name']
-            #privateIp = i['PrivateIpAddress']
-            #az = i['Placement']['AvailabilityZone']
-            #instanceType = i['InstanceType']
-            ec2temp = EC2(ec2name,instanceId,instanceType,az,state,privateIP,OS,projectCode,vpcid) 
+            ec2temp = EC2(ec2name,instanceId,instanceType,az,state,privateIP,launchTime,OS,projectCode,vpcid) 
             ec2List.append(ec2temp)
-
-    for i in ec2List:
-        print i.ec2name
-        print i.instanceId
-        print i.state
-        print i.privateIP
-        print i.OS
-        print i.projectCode
-        print i.vpcid
 
     def loadVPCs(): 
         # create VPC worksheet
@@ -162,8 +137,48 @@ def main():
             vpcworksheet.write('C'+str(row), i.vpcid)
             vpcworksheet.write('D'+str(row), i.cidr)
             row += 1
+ 
+    def loadEC2s():
+
+        for vID,vName in myVPC.my_vpc_dict.iteritems():
+            ec2worksheet = workbook.add_worksheet(vName) 
+            #if firstrun == 'true':
+            ec2worksheet.set_column('A:J', 20)
+            # add time format
+            ec2worksheet.set_column('A:J', 20)
+
+            ec2worksheet.write('A1', 'EC2 Name', bold)
+            ec2worksheet.write('B1', 'Instance ID', bold)
+            ec2worksheet.write('C1', 'Instance Type', bold)
+            ec2worksheet.write('D1', 'Availability Zone', bold)
+            ec2worksheet.write('E1', 'State', bold)
+            ec2worksheet.write('F1', 'Private IP', bold)
+            ec2worksheet.write('G1', 'Launch Time', bold)
+            ec2worksheet.write('H1', 'Operating System', bold)
+            ec2worksheet.write('I1', myTagTitle, bold)
+            ec2worksheet.write('J1', 'VPC ID', bold)
+
+            currentID = vID
+            row = 2
+            for i in ec2List:
+                if i.vpcid == currentID:
+                    ec2worksheet.write('A'+str(row), i.ec2name)
+                    ec2worksheet.write('B'+str(row), i.instanceId)
+                    ec2worksheet.write('C'+str(row), i.instanceType)
+                    ec2worksheet.write('D'+str(row), i.az) 
+                    ec2worksheet.write('E'+str(row), i.state) 
+                    ec2worksheet.write('F'+str(row), i.privateIP) 
+                    ec2worksheet.write('G'+str(row), i.launchTime) 
+                    ec2worksheet.write('H'+str(row), i.OS) 
+                    if i.projectCode == 'None':
+                        ec2worksheet.write('I'+str(row), "MISSING", redBG) 
+                    else:
+                        ec2worksheet.write('I'+str(row), i.projectCode) 
+                    ec2worksheet.write('J'+str(row), i.vpcid) 
+                    row += 1 
 
     loadVPCs()
+    loadEC2s()
     
     workbook.close()
 
