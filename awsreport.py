@@ -39,7 +39,7 @@ def main():
         """
         num_of_ec2s = 0
 
-        def __init__(self, ec2name, instanceId, instanceType, az, state, privateIP, OS, projectCode):
+        def __init__(self, ec2name, instanceId, instanceType, az, state, privateIP, OS, projectCode, vpcid):
             self.ec2name = ec2name
             self.instanceId = instanceId
             self.instanceType = instanceType
@@ -48,6 +48,7 @@ def main():
             self.privateIP = privateIP
             self.OS = OS
             self.projectCode = projectCode
+            self.vpcid = vpcid
 
             EC2.num_of_ec2s += 1
 
@@ -101,7 +102,7 @@ def main():
     for r in response['Reservations']:
         for i in r['Instances']:
             state = i['State']['Name']
-            #ec2state = i['State']['Name']
+            vpcid = i['VpcId']
             privateIP = i['PrivateIpAddress']
             instanceId = i['InstanceId']
             az = i['Placement']['AvailabilityZone']
@@ -127,7 +128,7 @@ def main():
             #privateIp = i['PrivateIpAddress']
             #az = i['Placement']['AvailabilityZone']
             #instanceType = i['InstanceType']
-            ec2temp = EC2(ec2name,instanceId,instanceType,az,state,privateIP,OS,projectCode)      
+            ec2temp = EC2(ec2name,instanceId,instanceType,az,state,privateIP,OS,projectCode,vpcid) 
             ec2List.append(ec2temp)
 
     for i in ec2List:
@@ -137,6 +138,7 @@ def main():
         print i.privateIP
         print i.OS
         print i.projectCode
+        print i.vpcid
 
     def loadVPCs(): 
         # create VPC worksheet
