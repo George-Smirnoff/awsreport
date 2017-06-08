@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 
 """ 
-awsreport.py, Berhe Gebretensai
+awsreport.py, bgx11
 This script queries your aws account and collects information
 on VPCs and EC2 instances and generates an excel spreadshet 
 with the collected information.
